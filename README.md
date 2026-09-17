@@ -1,58 +1,48 @@
 # Personal Memory Skill
 
-面向 AI 客户端的个人外置记忆接入层。
+面向 AI 客户端的个人外置记忆**使用策略层**。本仓只保留 Skill 本身，不部署服务器、不保存 Token、不实现 MCP Server。
 
-当前第一阶段只验证一件事：
+## 职责
 
-> ChatGPT 手动触发记忆能力 → Memory Gateway → Hindsight → 返回 ChatGPT
-
-目标不是证明“能用”，而是测清楚整条链路是否足够快、足够省操作，值得长期日常使用。
-
-## 第一阶段范围
-
-- `retain`：明确要求“记住/记录”时写入外置记忆。
-- `recall`：查询历史事实、决定、进度和讨论。
-- `reflect`：需要综合多条长期记忆时使用。
-- 不做项目级自动触发。
-- 不做每轮自动 Recall/Retain。
-- 不在仓库保存 Gateway Token、个人记忆、服务器凭据或其他秘密。
+- 用户明确要求“记住/记录” → 调用 `memory_retain`；
+- 查询过去事实、决定、进度、历史讨论 → 调用 `memory_recall`；
+- 需要综合多条长期记忆 → 调用 `memory_reflect`；
+- 只有收到工具真实成功结果后，才能告诉用户已经写入；
+- 普通闲聊不主动增加记忆开销。
 
 ## 架构
 
 ```text
-ChatGPT
-   ↓ 手动触发 Skill / App
-Personal Memory Skill
+AI Client
    ↓
-Memory App / MCP Adapter
-   ↓ HTTPS
+Personal Memory Skill       ← 本仓：调用策略
+   ↓ MCP
+Memory MCP                  ← 独立 memory-mcp 仓：协议适配与部署
+   ↓ HTTP
 Memory Gateway
    ↓
 Hindsight
-   ↓
-Memory LLM
 ```
 
-Skill 负责工作流与调用规则；真正访问外部 Gateway 需要 ChatGPT 可调用的 App/MCP 工具。Gateway 和 Hindsight 保持独立。
+服务端 MCP 的源码、systemd、一键部署、smoke test 全部属于 `memory-mcp`，不放在本仓。
 
-## 验收重点
+## 第一阶段验收目标
 
-不是只看 HTTP 200，而是记录：
+先手动调用，不做项目级自动触发。真实测清：
 
-1. 用户为了“记住一次/回忆一次”需要几步操作；
-2. Retain / Recall / Reflect 的端到端耗时；
-3. Gateway 与 Hindsight 各自耗时；
-4. 返回结果是否足够相关；
-5. 连续使用时是否出现明显等待、重复确认或其他摩擦。
+1. 一次记住/回忆需要多少用户操作；
+2. Retain / Recall / Reflect 端到端耗时；
+3. 返回结果相关性；
+4. 连续使用是否存在明显等待或额外摩擦。
+
+只有手动链路足够高效，才继续自动触发、Raw Store 等后续层。
 
 ## 当前状态
 
-- [x] 仓库建立
-- [x] 第一版 `SKILL.md`
-- [x] 明确 Skill 与外部 App/MCP 的职责边界
-- [ ] Gateway 暴露 ChatGPT 可调用的 MCP 接口
-- [ ] 安全远程连接方式
-- [ ] ChatGPT 实际安装/调用
-- [ ] Retain / Recall / Reflect 端到端性能测试
-
-> 注意：ChatGPT 的 Skills、Custom Apps 和完整 MCP 能力受套餐、workspace、surface 和 rollout 影响。仓库本身不假设某个 ChatGPT 套餐一定支持写入型 MCP。
+- [x] Skill 与服务端职责拆分；
+- [x] 第一版 `SKILL.md`；
+- [x] MCP Server 已迁移到独立 `memory-mcp` 仓；
+- [ ] Memory MCP 旧 VPS runtime 验证；
+- [ ] 安全公网 MCP 接入；
+- [ ] ChatGPT 实际手动调用；
+- [ ] 真实用户体感与端到端性能验收。
